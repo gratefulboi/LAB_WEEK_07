@@ -17,16 +17,22 @@ import com.google.android.gms.maps.SupportMapFragment
 import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.maps.model.MarkerOptions
 import com.example.lab_week_07.databinding.ActivityMapsBinding
+import com.google.android.gms.location.LocationServices
 
 class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
 
-    private lateinit var mMap: GoogleMap
+    private lateinit var nMap: GoogleMap
     private lateinit var binding: ActivityMapsBinding
 
     //This is the variable through which we will launch the permission request and
     // track user responses
     private lateinit var requestPermissionLauncher: ActivityResultLauncher<String>
 
+    //A google play location service which helps us interact with Google's Fused  Location Provider API
+    //The API intelligently provides us with the device location information
+    private val fusedLocationProviderClient by lazy {
+        LocationServices.getFusedLocationProviderClient(this)
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -45,7 +51,7 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
         //which in this case we're using the RequestPermission() ActivityResultContract
         requestPermissionLauncher = registerForActivityResult(ActivityResultContracts.RequestPermission()) {
                 isGranted -> if(isGranted) {
-                //If granted by user, execute the ncessary function
+                //If granted by user, execute the necessary function
                 getLastLocation()
             } else {
                 //If not granted, show a rationale dialog
@@ -70,7 +76,7 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
      * installed Google Play services and returned to the app.
      */
     override fun onMapReady(googleMap: GoogleMap) {
-        mMap = googleMap
+        nMap = googleMap
 
         //OnMapReady is called when the map is ready to be used
         //The code below is used to check for the location permission for the map  functionality to work
@@ -109,7 +115,32 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
             }
             .create().show()
     }
+
+    //Executed when the location permission has been granted by the user
     private fun getLastLocation() {
-        Log.d("MapsActivity", "getLasLocation() called.")
+        if (hasLocationPermission()) {
+            try {
+                fusedLocationProviderClient.lastLocation.addOnSuccessListener { location ->
+                    location?.let {
+                        val userLocation = LatLng(it.latitude, it.longitude)
+                        updateMapLocation(userLocation)
+                        addMarkerAtLocation(userLocation, "You")
+                    }
+                }
+            } catch (e: SecurityException) {
+                Log.e("MapsActivity", "SecurityException: ${e.message}")
+            }
+        } else {
+            requestPermissionLauncher.launch(ACCESS_FINE_LOCATION)
+        }
+    }
+
+
+    private fun updateMapLocation(location: LatLng) {
+        nMap.moveCamera(CameraUpdateFactory.newLatLngZoom(location, 7f))
+    }
+
+    private fun addMarkerAtLocation(location: LatLng, title: String) {
+        nMap.addMarker(MarkerOptions().title(title).position(location))
     }
 }
